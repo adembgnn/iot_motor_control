@@ -139,7 +139,7 @@
 
     <div class="row">
       <input type="number" id="numInput" min="0" max="360" value="90" placeholder="0 – 360">
-      <button class="primary" id="sendBtn" onclick="sendFromInput()" disabled>Gönder</button>
+      <button class="primary" id="sendBtn" onclick="sendCurrent()" disabled>Gönder</button>
     </div>
 
     <div class="presets">
@@ -160,7 +160,7 @@
     const PORT   = 8884;
     const USER   = "ademm";
     const PASS   = "0531nNaA";
-    const TOPIC  = "evim/servo"; // ESP32 kodundaki topic ile aynı
+    const TOPIC  = "evim/servo";
 
     const statusEl    = document.getElementById("status");
     const angleDisplay= document.getElementById("angleDisplay");
@@ -169,7 +169,7 @@
     const lastSent    = document.getElementById("lastSent");
     const allBtns     = document.querySelectorAll("button");
 
-    let client, reconnectTimer, sendTimer;
+    let client, reconnectTimer;
 
     function setStatus(t, c) { statusEl.textContent = t; statusEl.className = c; }
     function setBtns(e) { allBtns.forEach(b => b.disabled = !e); }
@@ -194,8 +194,8 @@
         ctx.lineCap = "round";
         ctx.stroke();
       }
-      const nx = cx + (r) * Math.cos(Math.PI + progress);
-      const ny = cy + (r) * Math.sin(Math.PI + progress);
+      const nx = cx + r * Math.cos(Math.PI + progress);
+      const ny = cy + r * Math.sin(Math.PI + progress);
       ctx.beginPath();
       ctx.arc(nx, ny, 9, 0, 2 * Math.PI);
       ctx.fillStyle = "#3b82f6";
@@ -206,19 +206,27 @@
       ctx.fill();
     }
 
+    // Sadece görsel güncelle, mesaj gönderme
     function setAngle(angle) {
       angle = Math.max(0, Math.min(360, Math.round(angle)));
       slider.value = angle;
       numInput.value = angle;
       angleDisplay.textContent = angle;
       drawGauge(angle);
-      clearTimeout(sendTimer);
-      sendTimer = setTimeout(() => sendAngle(angle), 250);
+      // preset butonlar için direkt gönder
+      sendAngle(angle);
     }
 
-    function sendFromInput() {
+    // Gönder butonuna basınca çalışır
+    function sendCurrent() {
       const val = parseInt(numInput.value);
-      if (!isNaN(val)) setAngle(val);
+      if (isNaN(val)) return;
+      const angle = Math.max(0, Math.min(360, val));
+      slider.value = angle;
+      numInput.value = angle;
+      angleDisplay.textContent = angle;
+      drawGauge(angle);
+      sendAngle(angle);
     }
 
     function sendAngle(angle) {
@@ -227,7 +235,6 @@
         connect();
         return;
       }
-      // ESP32 kodun düz sayı bekliyor: "90" (SERVO: prefix yok)
       const msg = new Paho.Message(String(angle));
       msg.destinationName = TOPIC;
       msg.qos = 1;
@@ -235,8 +242,15 @@
       lastSent.textContent = angle + "°";
     }
 
-    slider.addEventListener("input", () => setAngle(parseInt(slider.value)));
-    numInput.addEventListener("keydown", e => { if (e.key === "Enter") sendFromInput(); });
+    // Slider sadece görseli günceller, mesaj göndermez
+    slider.addEventListener("input", () => {
+      const angle = parseInt(slider.value);
+      numInput.value = angle;
+      angleDisplay.textContent = angle;
+      drawGauge(angle);
+    });
+
+    numInput.addEventListener("keydown", e => { if (e.key === "Enter") sendCurrent(); });
 
     function connect() {
       clearTimeout(reconnectTimer);
