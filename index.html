@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LED Kontrol Paneli</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: sans-serif;
+      background: #f0f0f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #222; }
+    #status {
+      font-size: 0.9rem;
+      color: #888;
+      margin-bottom: 2rem;
+    }
+    #status.connected { color: #2e7d32; font-weight: 600; }
+    #status.error { color: #c62828; font-weight: 600; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      width: 100%;
+      max-width: 600px;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 1.5rem;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .card h2 { font-size: 1rem; color: #555; margin-bottom: 1rem; }
+    .bulb {
+      width: 60px; height: 60px;
+      border-radius: 50%;
+      margin: 0 auto 1rem;
+      background: #ddd;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .bulb.on {
+      background: #FFD600;
+      box-shadow: 0 0 20px #FFD600;
+    }
+    .btn-group { display: flex; gap: 8px; justify-content: center; }
+    button {
+      padding: 8px 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-on  { background: #2e7d32; color: white; }
+    .btn-off { background: #c62828; color: white; }
+    .btn-on:hover:not(:disabled)  { opacity: 0.85; }
+    .btn-off:hover:not(:disabled) { opacity: 0.85; }
+  </style>
+</head>
+<body>
+  <h1>💡 LED Kontrol Paneli</h1>
+  <p id="status">Bağlanıyor...</p>
+
+  <div class="grid">
+    <div class="card">
+      <h2>LED 1</h2>
+      <div class="bulb" id="bulb1"></div>
+      <div class="btn-group">
+        <button class="btn-on"  onclick="send('LED1_ON',  'bulb1')" disabled id="b1on">AÇ</button>
+        <button class="btn-off" onclick="send('LED1_OFF', 'bulb1')" disabled id="b1off">KAPAT</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>LED 2</h2>
+      <div class="bulb" id="bulb2"></div>
+      <div class="btn-group">
+        <button class="btn-on"  onclick="send('LED2_ON',  'bulb2')" disabled id="b2on">AÇ</button>
+        <button class="btn-off" onclick="send('LED2_OFF', 'bulb2')" disabled id="b2off">KAPAT</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>LED 3</h2>
+      <div class="bulb" id="bulb3"></div>
+      <div class="btn-group">
+        <button class="btn-on"  onclick="send('LED3_ON',  'bulb3')" disabled id="b3on">AÇ</button>
+        <button class="btn-off" onclick="send('LED3_OFF', 'bulb3')" disabled id="b3off">KAPAT</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const BROKER   = "342319a9d06340038c3a61d7d58a09a2.s1.eu.hivemq.cloud";
+    const PORT     = 8884; // WebSocket port
+    const USER     = "ademm";
+    const PASS     = "0531nNaA";
+    const TOPIC    = "evim/led_kontrol";
+
+    const statusEl = document.getElementById("status");
+    const allBtns  = document.querySelectorAll("button");
+
+    const clientId = "WebPanel-" + Math.floor(Math.random() * 10000);
+    const client   = new Paho.Client(BROKER, PORT, "/mqtt", clientId);
+
+    client.onConnectionLost = () => {
+      statusEl.textContent = "Bağlantı kesildi, yeniden deneniyor...";
+      statusEl.className = "error";
+      allBtns.forEach(b => b.disabled = true);
+      setTimeout(connect, 3000);
+    };
+
+    function connect() {
+      statusEl.textContent = "Bağlanıyor...";
+      statusEl.className = "";
+      client.connect({
+        useSSL: true,
+        userName: USER,
+        password: PASS,
+        onSuccess: () => {
+          statusEl.textContent = "✓ Bağlı — " + BROKER;
+          statusEl.className = "connected";
+          allBtns.forEach(b => b.disabled = false);
+        },
+        onFailure: (err) => {
+          statusEl.textContent = "Hata: " + err.errorMessage;
+          statusEl.className = "error";
+          setTimeout(connect, 5000);
+        }
+      });
+    }
+
+    function send(message, bulbId) {
+      const msg = new Paho.Message(message);
+      msg.destinationName = TOPIC;
+      msg.qos = 1;
+      client.send(msg);
+
+      const bulb = document.getElementById(bulbId);
+      bulb.classList.toggle("on", message.endsWith("ON"));
+    }
+
+    connect();
+  </script>
+</body>
+</html>
