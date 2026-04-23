@@ -3,174 +3,271 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LED Kontrol</title>
+  <title>Servo Kontrol</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: sans-serif;
-      background: #f0f0f0;
+      background: #f5f5f5;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
-      padding: 2rem;
+      padding: 2rem 1rem;
+      color: #111;
     }
-    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #222; }
+    h1 { font-size: 1.4rem; font-weight: 500; margin-bottom: 6px; }
     #status {
-      font-size: 0.9rem;
-      color: #888;
-      margin-bottom: 2rem;
-      padding: 6px 14px;
+      font-size: 0.82rem;
+      padding: 4px 14px;
       border-radius: 20px;
       background: #e0e0e0;
+      color: #666;
+      margin-bottom: 2rem;
     }
-    #status.connected { background: #c8e6c9; color: #2e7d32; font-weight: 600; }
-    #status.error { background: #ffcdd2; color: #c62828; font-weight: 600; }
-    #status.reconnecting { background: #fff9c4; color: #f57f17; font-weight: 600; }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 1rem;
-      width: 100%;
-      max-width: 560px;
-    }
+    #status.connected    { background: #d4edda; color: #1e6633; font-weight: 600; }
+    #status.error        { background: #fde8e8; color: #b91c1c; font-weight: 600; }
+    #status.reconnecting { background: #fef3c7; color: #92400e; font-weight: 600; }
+
     .card {
       background: white;
-      border-radius: 16px;
-      padding: 1.5rem;
+      border-radius: 20px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+    }
+
+    .gauge-wrap { display: flex; justify-content: center; margin-bottom: 0.5rem; }
+
+    .angle-display {
       text-align: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      font-size: 3.5rem;
+      font-weight: 500;
+      color: #111;
+      line-height: 1;
     }
-    .card h2 { font-size: 1rem; color: #555; margin-bottom: 1rem; }
-    .bulb {
-      width: 56px; height: 56px;
-      border-radius: 50%;
-      margin: 0 auto 1rem;
-      background: #ddd;
-      transition: background 0.3s, box-shadow 0.3s;
+    .angle-label {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #aaa;
+      margin-bottom: 1.8rem;
+      margin-top: 4px;
     }
-    .bulb.on { background: #FFD600; box-shadow: 0 0 18px #FFD600; }
-    .btn-group { display: flex; gap: 8px; justify-content: center; }
-    button {
-      padding: 8px 16px;
+
+    .slider-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 1.4rem;
+    }
+    .slider-wrap span { font-size: 11px; color: #bbb; min-width: 26px; text-align: center; }
+    input[type=range] { flex: 1; accent-color: #3b82f6; cursor: pointer; }
+
+    .row { display: flex; gap: 8px; margin-bottom: 1.2rem; }
+    .row input[type=number] {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      font-size: 1rem;
+      text-align: center;
+      color: #111;
+      outline: none;
+      background: white;
+    }
+    .row input[type=number]:focus { border-color: #3b82f6; }
+    .row button.primary {
+      padding: 10px 22px;
+      background: #3b82f6;
+      color: white;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 500;
       cursor: pointer;
-      font-size: 0.85rem;
-      font-weight: 600;
-      transition: opacity 0.2s, transform 0.1s;
     }
-    button:active { transform: scale(0.96); }
-    button:disabled { opacity: 0.35; cursor: not-allowed; }
-    .btn-on  { background: #2e7d32; color: white; }
-    .btn-off { background: #c62828; color: white; }
+    .row button.primary:hover:not(:disabled) { background: #2563eb; }
+    .row button.primary:disabled { background: #d1d5db; cursor: not-allowed; }
+
+    .presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .presets button {
+      padding: 9px 4px;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: white;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      color: #555;
+    }
+    .presets button:hover:not(:disabled) { border-color: #3b82f6; color: #3b82f6; background: #f0f6ff; }
+    .presets button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .sent-wrap {
+      margin-top: 1.2rem;
+      padding: 10px 14px;
+      background: #f9fafb;
+      border-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sent-wrap span { font-size: 0.78rem; color: #aaa; }
+    .sent-wrap strong { font-size: 0.9rem; color: #3b82f6; }
   </style>
 </head>
 <body>
-  <h1>💡 LED Kontrol</h1>
+  <h1>Servo Kontrol</h1>
   <p id="status">Bağlanıyor...</p>
- 
-  <div class="grid">
-    <div class="card">
-      <h2>LED 1</h2>
-      <div class="bulb" id="bulb1"></div>
-      <div class="btn-group">
-        <button class="btn-on"  onclick="send('LED1_ON','bulb1')"  disabled>AÇ</button>
-        <button class="btn-off" onclick="send('LED1_OFF','bulb1')" disabled>KAPAT</button>
-      </div>
+
+  <div class="card">
+    <div class="gauge-wrap">
+      <canvas id="gauge" width="220" height="125"></canvas>
     </div>
-    <div class="card">
-      <h2>LED 2</h2>
-      <div class="bulb" id="bulb2"></div>
-      <div class="btn-group">
-        <button class="btn-on"  onclick="send('LED2_ON','bulb2')"  disabled>AÇ</button>
-        <button class="btn-off" onclick="send('LED2_OFF','bulb2')" disabled>KAPAT</button>
-      </div>
+
+    <div class="angle-display" id="angleDisplay">90</div>
+    <div class="angle-label">derece</div>
+
+    <div class="slider-wrap">
+      <span>0°</span>
+      <input type="range" id="slider" min="0" max="360" value="90" step="1">
+      <span>360°</span>
     </div>
-    <div class="card">
-      <h2>LED 3</h2>
-      <div class="bulb" id="bulb3"></div>
-      <div class="btn-group">
-        <button class="btn-on"  onclick="send('LED3_ON','bulb3')"  disabled>AÇ</button>
-        <button class="btn-off" onclick="send('LED3_OFF','bulb3')" disabled>KAPAT</button>
-      </div>
+
+    <div class="row">
+      <input type="number" id="numInput" min="0" max="360" value="90" placeholder="0 – 360">
+      <button class="primary" id="sendBtn" onclick="sendFromInput()" disabled>Gönder</button>
+    </div>
+
+    <div class="presets">
+      <button class="preset-btn" onclick="setAngle(0)"   disabled>0°</button>
+      <button class="preset-btn" onclick="setAngle(90)"  disabled>90°</button>
+      <button class="preset-btn" onclick="setAngle(180)" disabled>180°</button>
+      <button class="preset-btn" onclick="setAngle(360)" disabled>360°</button>
+    </div>
+
+    <div class="sent-wrap">
+      <span>Son gönderilen</span>
+      <strong id="lastSent">—</strong>
     </div>
   </div>
- 
+
   <script>
     const BROKER = "342319a9d06340038c3a61d7d58a09a2.s1.eu.hivemq.cloud";
     const PORT   = 8884;
     const USER   = "ademm";
     const PASS   = "0531nNaA";
-    const TOPIC  = "evim/led_kontrol";
- 
-    const statusEl = document.getElementById("status");
-    const allBtns  = document.querySelectorAll("button");
- 
-    let client;
-    let reconnectTimer;
- 
-    function setStatus(text, cls) {
-      statusEl.textContent = text;
-      statusEl.className = cls;
+    const TOPIC  = "evim/servo"; // ESP32 kodundaki topic ile aynı
+
+    const statusEl    = document.getElementById("status");
+    const angleDisplay= document.getElementById("angleDisplay");
+    const slider      = document.getElementById("slider");
+    const numInput    = document.getElementById("numInput");
+    const lastSent    = document.getElementById("lastSent");
+    const allBtns     = document.querySelectorAll("button");
+
+    let client, reconnectTimer, sendTimer;
+
+    function setStatus(t, c) { statusEl.textContent = t; statusEl.className = c; }
+    function setBtns(e) { allBtns.forEach(b => b.disabled = !e); }
+
+    function drawGauge(angle) {
+      const canvas = document.getElementById("gauge");
+      const ctx = canvas.getContext("2d");
+      const cx = 110, cy = 115, r = 90;
+      ctx.clearRect(0, 0, 220, 125);
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, Math.PI, 2 * Math.PI);
+      ctx.strokeStyle = "#f0f0f0";
+      ctx.lineWidth = 16;
+      ctx.lineCap = "round";
+      ctx.stroke();
+      const progress = (angle / 360) * Math.PI;
+      if (progress > 0) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, Math.PI, Math.PI + progress);
+        ctx.strokeStyle = "#3b82f6";
+        ctx.lineWidth = 16;
+        ctx.lineCap = "round";
+        ctx.stroke();
+      }
+      const nx = cx + (r) * Math.cos(Math.PI + progress);
+      const ny = cy + (r) * Math.sin(Math.PI + progress);
+      ctx.beginPath();
+      ctx.arc(nx, ny, 9, 0, 2 * Math.PI);
+      ctx.fillStyle = "#3b82f6";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx, cy, 5, 0, 2 * Math.PI);
+      ctx.fillStyle = "#cbd5e1";
+      ctx.fill();
     }
- 
-    function setBtns(enabled) {
-      allBtns.forEach(b => b.disabled = !enabled);
+
+    function setAngle(angle) {
+      angle = Math.max(0, Math.min(360, Math.round(angle)));
+      slider.value = angle;
+      numInput.value = angle;
+      angleDisplay.textContent = angle;
+      drawGauge(angle);
+      clearTimeout(sendTimer);
+      sendTimer = setTimeout(() => sendAngle(angle), 250);
     }
- 
+
+    function sendFromInput() {
+      const val = parseInt(numInput.value);
+      if (!isNaN(val)) setAngle(val);
+    }
+
+    function sendAngle(angle) {
+      if (!client || !client.isConnected()) {
+        setStatus("Bağlı değil, yeniden bağlanıyor...", "reconnecting");
+        connect();
+        return;
+      }
+      // ESP32 kodun düz sayı bekliyor: "90" (SERVO: prefix yok)
+      const msg = new Paho.Message(String(angle));
+      msg.destinationName = TOPIC;
+      msg.qos = 1;
+      client.send(msg);
+      lastSent.textContent = angle + "°";
+    }
+
+    slider.addEventListener("input", () => setAngle(parseInt(slider.value)));
+    numInput.addEventListener("keydown", e => { if (e.key === "Enter") sendFromInput(); });
+
     function connect() {
       clearTimeout(reconnectTimer);
       const clientId = "Web-" + Math.floor(Math.random() * 99999);
       client = new Paho.Client(BROKER, PORT, "/mqtt", clientId);
- 
-      client.onConnectionLost = (res) => {
-        setStatus("⚠ Bağlantı koptu, yeniden bağlanıyor...", "reconnecting");
+      client.onConnectionLost = () => {
+        setStatus("Bağlantı koptu, yeniden bağlanıyor...", "reconnecting");
         setBtns(false);
         reconnectTimer = setTimeout(connect, 3000);
       };
- 
       setStatus("Bağlanıyor...", "");
       client.connect({
         useSSL: true,
         userName: USER,
         password: PASS,
         keepAliveInterval: 30,
-        onSuccess: () => {
-          setStatus("✓ Bağlı", "connected");
-          setBtns(true);
-        },
+        onSuccess: () => { setStatus("Bağlı", "connected"); setBtns(true); },
         onFailure: (err) => {
-          setStatus("✗ Bağlanamadı: " + err.errorMessage, "error");
+          setStatus("Bağlanamadı: " + err.errorMessage, "error");
           setBtns(false);
           reconnectTimer = setTimeout(connect, 5000);
         }
       });
     }
- 
-    function send(message, bulbId) {
-      if (!client || !client.isConnected()) {
-        setStatus("⚠ Bağlı değil, yeniden bağlanıyor...", "reconnecting");
-        connect();
-        return;
-      }
-      const msg = new Paho.Message(message);
-      msg.destinationName = TOPIC;
-      msg.qos = 1;
-      client.send(msg);
-      document.getElementById(bulbId).classList.toggle("on", message.endsWith("ON"));
-    }
- 
-    connect();
- 
-    // Sayfa görünür olduğunda bağlantıyı kontrol et (telefon uyku modundan dönünce)
+
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden && (!client || !client.isConnected())) {
-        connect();
-      }
+      if (!document.hidden && (!client || !client.isConnected())) connect();
     });
+
+    drawGauge(90);
+    connect();
   </script>
 </body>
 </html>
